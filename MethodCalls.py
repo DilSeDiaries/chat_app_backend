@@ -5,6 +5,9 @@ import json
 import os
 DBConnection = DBConnection()
 import ast  # Import the ast module for literal evaluation
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 class MethodCalls:
@@ -89,12 +92,12 @@ class MethodCalls:
             cursor.execute(sql_data)
             inserted_id = cursor.lastrowid
             conn.commit()
-            UPLOAD_FOLDER = 'Images'
+            UPLOAD_FOLDER = 'static/Images'
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
             subfolder = os.path.join(UPLOAD_FOLDER, f'{inserted_id}')
             os.makedirs(subfolder, exist_ok=True)
             for file in image:
-                save_path = os.path.join(subfolder, file.filename)
+                save_path = os.path.join(subfolder, 'img')
                 file.save(save_path)
             return {
                 'status':True,
@@ -129,11 +132,19 @@ class MethodCalls:
             sql_posts_comm = f"""select * from post_comment"""
             df_posts_comm = pd.read_sql(sql_posts_comm, db_conn)
 
-            grouped = (
-                df_posts_comm.groupby('post_id')
-                .apply(lambda x: x[['comment_by', 'comment_context']].to_dict(orient='records'))
-                .reset_index(name='comments')
-            )
+            try:
+
+                grouped = (
+                    df_posts_comm.groupby('post_id')
+                    .apply(lambda x: x[['comment_by', 'comment_context']].to_dict(orient='records'))
+                    .reset_index(name='comments')
+                )
+            except:
+                grouped = (
+                    df_posts_comm.groupby('post_id')
+                    .apply(lambda x: x[['comment_by', 'comment_context']].to_dict(orient='records'))
+                    .reset_index()
+                )
 
             merged_df = pd.merge(df_posts, grouped, on='post_id', how='left')
             merged_df = merged_df.fillna({'comments': ''})
@@ -269,6 +280,121 @@ class MethodCalls:
         finally:
             if conn:
                 conn.close()
+
+    def send_mail(self,name=None, email_data=None, sender_email=None,sender_password=None):
+        try:
+            # print("name,email_data,from_email",name,email_data,sender_email)
+            # message = MIMEMultipart()
+            # message['From'] = sender_email
+            # message['To'] = email_data['to']
+            # message['Subject'] = email_data['subject']
+            # #
+            # # # Attach the email body
+            # message.attach(MIMEText(email_data['body'], 'plain'))
+            # #
+            # # # Connect to the Gmail SMTP server
+            # server = smtplib.SMTP('smtp.gmail.com', 587)
+            # server.starttls()  # Start TLS encryption
+            # server.login(sender_email, sender_password)
+            #
+            # # Send the email
+            # server.sendmail(sender_email, email_data['to'], message.as_string())
+            # # # Close the connection
+            # server.quit()
+            # return {
+            #     'status':True,
+            #     'msg':'Email sent successfully'
+            # }
+            print(email_data)
+            message = MIMEMultipart("alternative")
+            message['From'] = sender_email
+            message['To'] = email_data['to']
+            message['Subject'] = email_data['subject']
+
+            # Attach the email body
+
+            html_body = f"""
+                            <html>
+                                <head>
+                                    <style>
+                                        body {{
+                                            font-family: Arial, sans-serif;
+                                            line-height: 1.6;
+                                            color: #333333;
+                                            background-color: #f9f9f9;
+                                            padding: 20px;
+                                        }}
+                                        .container {{
+                                            max-width: 600px;
+                                            margin: 0 auto;
+                                            background: #ffffff;
+                                            border-radius: 8px;
+                                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                                            overflow: hidden;
+                                        }}
+                                        .header {{
+                                            background: #4caf50;
+                                            color: white;
+                                            padding: 20px;
+                                            text-align: center;
+                                            font-size: 20px;
+                                            font-weight: bold;
+                                        }}
+                                        .content {{
+                                            padding: 20px;
+                                        }}
+                                        .footer {{
+                                            background: #f1f1f1;
+                                            text-align: center;
+                                            padding: 10px;
+                                            font-size: 12px;
+                                            color: #555555;
+                                        }}
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="container">
+                                        <div class="header">{email_data['title']}</div>
+                                        <div class="content">
+                                            <p>{email_data['body']}</p>
+                                            <p style="font-style: italic; color: #555555;">
+                                                Note: This is an autogenerated email. Please do not reply to this message.
+                                            </p>
+                                        </div>
+                                        <div class="footer">
+                                            &copy; 2024 Your Company. All Rights Reserved.
+                                        </div>
+                                    </div>
+                                </body>
+                            </html>
+                            """
+
+            # Attach the HTML content
+            message.attach(MIMEText(html_body, "html"))
+            # Connect to the Gmail SMTP server
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()  # Start TLS encryption
+            server.login(sender_email, sender_password)  # Use the App Password
+
+            # Send the email
+            server.sendmail(sender_email, email_data['to'], message.as_string())
+            print("Email sent successfully!")
+
+            # Close the connection
+            server.quit()
+
+            return {
+                'status':True,
+                'msg':'Email sent successfully'
+            }
+        except Exception as ex:
+            print(traceback.print_exc())
+            return {
+                'status': False,
+                'msg': str(traceback.print_exc())
+            }
+        finally:
+            pass
 
 
 

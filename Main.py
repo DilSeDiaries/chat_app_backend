@@ -105,6 +105,21 @@ def updateProfileCall():
     response = MethodCalls.updateProfileCall(email=email, name=name,new_name=new_name)
     return response
 
+@app.route('/sendMail',methods=['POST'])
+def sendMailCall():
+    data = request.get_json()
+    name = data.get('name')
+    sender_email = data.get('from_email')
+    email_data = data.get('email_data')
+    sender_password = data.get('password')
+    if not all([name, email_data, sender_email]):
+        return {
+            'status': False,
+            'msg': 'Missing required fields (name, email_data, from_email)'
+        }
+    response = MethodCalls.send_mail(name=name, email_data=email_data, sender_email=sender_email,sender_password=sender_password)
+    return response
+
 
 
 if __name__ == "__main__":
